@@ -5,7 +5,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, Header, HTTPException, BackgroundTasks, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,7 @@ from .scanner import analyze_content, analyze_tool_call, get_audit_events
 from .tenant import resolve_tenant
 from .connectors import dispatch_to_siem, get_enabled_connectors
 from .queue import enqueue, get_pending, get_all as get_all_queue, resolve as resolve_queue_item
+from .websocket import connect as ws_connect, disconnect as ws_disconnect, broadcast as ws_broadcast, get_connection_count
 from .database import get_all_policies, get_policy, update_policy, create_policy, delete_policy
 
 setup_logging()
@@ -169,6 +170,8 @@ async def _fire_webhooks(event: dict[str, Any]) -> None:
                 logger.warning(f"Webhook delivery failed to {url}: {e}")
     # Dispatch to SIEM connectors
     await dispatch_to_siem(event)
+    # Stream to WebSocket clients
+    await ws_broadcast(event)
 
 
 def _update_stats(decision: str) -> None:
@@ -196,6 +199,7 @@ def health() -> dict[str, Any]:
         "auth_enabled": API_AUTH_ENABLED,
         "webhooks_configured": len(WEBHOOK_URLS) + len(REGISTERED_WEBHOOKS),
         "siem_connectors": [c.name for c in get_enabled_connectors()],
+        "ws_clients": get_connection_count(),
     }
 
 
@@ -529,3 +533,20 @@ def resolve_queue(queue_id: str, request: QueueResolveRequest, authorization: st
     if not result:
         raise HTTPException(status_code=404, detail=f"Queue item {queue_id} not found or already resolved")
     return result
+
+
+# --- WebSocket Streaming ---
+
+@app.websocket("/ws/events")
+async def websocket_events(websocket: WebSocket):
+    """Stream scan events in real-time via WebSocket.
+
+    Connect to ws://host:8000/ws/events to receive JSON messages
+    for every scan event as it happens.
+    """
+    await ws_connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # Keep connection alive
+    except WebSocketDisconnect:
+        ws_disconnect(websocket)
