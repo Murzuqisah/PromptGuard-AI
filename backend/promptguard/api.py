@@ -19,6 +19,7 @@ from .config import (
     WEBHOOK_EVENTS,
 )
 from .gemini import is_available as gemini_available
+from .rbac import require_role
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,8 @@ app.add_middleware(
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
+# RBAC is handled by require_role() from rbac.py
+# Legacy _verify_api_key kept for backward compat on non-RBAC endpoints
 
 def _verify_api_key(authorization: str | None) -> None:
     if not API_AUTH_ENABLED:
@@ -142,7 +145,7 @@ def health() -> dict[str, Any]:
 
 @app.post("/scan")
 def scan(request: ScanRequest, background_tasks: BackgroundTasks, authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    _verify_api_key(authorization)
+    require_role("scan", authorization)
     result = analyze_content(request.content, request.channel)
     _update_stats(result["decision"])
     background_tasks.add_task(_fire_webhooks, result)
@@ -151,7 +154,7 @@ def scan(request: ScanRequest, background_tasks: BackgroundTasks, authorization:
 
 @app.post("/scan-tool")
 def scan_tool(request: ToolScanRequest, background_tasks: BackgroundTasks, authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    _verify_api_key(authorization)
+    require_role("scan", authorization)
     result = analyze_tool_call(request.tool_name, request.arguments)
     _update_stats(result["decision"])
     background_tasks.add_task(_fire_webhooks, result)
@@ -160,7 +163,7 @@ def scan_tool(request: ToolScanRequest, background_tasks: BackgroundTasks, autho
 
 @app.get("/audit")
 def audit(limit: int = 50, authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    _verify_api_key(authorization)
+    require_role("audit", authorization)
     return {"events": get_audit_events(limit)}
 
 
@@ -210,7 +213,7 @@ def guard(request: GuardRequest, background_tasks: BackgroundTasks, authorizatio
 @app.post("/v1/batch")
 def batch_scan(request: BatchScanRequest, background_tasks: BackgroundTasks, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """Scan multiple items in a single request. Useful for CI/CD pipelines and bulk analysis."""
-    _verify_api_key(authorization)
+    require_role("batch", authorization)
 
     results = []
     denied_count = 0
@@ -239,11 +242,11 @@ def batch_scan(request: BatchScanRequest, background_tasks: BackgroundTasks, aut
 @app.post("/v1/override")
 def override_decision(request: OverrideRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """
-    Override a previous scan decision. Requires authentication.
+    Override a previous scan decision. Requires analyst or admin role.
     Used by security teams to manually allow/deny flagged content.
     All overrides are audit-logged.
     """
-    _verify_api_key(authorization)
+    require_role("override", authorization)
 
     override_record = {
         "override_id": str(uuid4()),
@@ -265,14 +268,14 @@ def override_decision(request: OverrideRequest, authorization: str | None = Head
 @app.get("/v1/overrides")
 def list_overrides(limit: int = 50, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """List recent decision overrides."""
-    _verify_api_key(authorization)
+    require_role("override", authorization)
     return {"overrides": OVERRIDES[-limit:][::-1]}
 
 
 @app.post("/v1/webhooks")
 def register_webhook(request: WebhookRegisterRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    """Register a webhook endpoint for real-time security alerts."""
-    _verify_api_key(authorization)
+    """Register a webhook endpoint for real-time security alerts. Requires admin role."""
+    require_role("webhooks", authorization)
 
     webhook = {
         "id": str(uuid4()),
@@ -288,14 +291,14 @@ def register_webhook(request: WebhookRegisterRequest, authorization: str | None 
 @app.get("/v1/webhooks")
 def list_webhooks(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """List registered webhooks."""
-    _verify_api_key(authorization)
+    require_role("webhooks", authorization)
     return {"webhooks": REGISTERED_WEBHOOKS}
 
 
 @app.delete("/v1/webhooks/{webhook_id}")
 def delete_webhook(webhook_id: str, authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    """Remove a registered webhook."""
-    _verify_api_key(authorization)
+    """Remove a registered webhook. Requires admin role."""
+    require_role("webhooks", authorization)
     global REGISTERED_WEBHOOKS
     REGISTERED_WEBHOOKS = [w for w in REGISTERED_WEBHOOKS if w["id"] != webhook_id]
     return {"status": "deleted", "id": webhook_id}
@@ -307,7 +310,7 @@ def stats(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     Security metrics for dashboards.
     Returns scan counts, decision breakdown, and threat detection rate.
     """
-    _verify_api_key(authorization)
+    require_role("stats", authorization)
 
     total = STATS["total_scans"] or 1
     return {
