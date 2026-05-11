@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
@@ -19,9 +18,12 @@ from .config import (
     WEBHOOK_EVENTS,
 )
 from .gemini import is_available as gemini_available
+from .logging import setup_logging, get_logger, correlation_id
+from .middleware import CorrelationIDMiddleware
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 
-logger = logging.getLogger(__name__)
+setup_logging()
+logger = get_logger(__name__)
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIDMiddleware)
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -145,6 +148,7 @@ def scan(request: ScanRequest, background_tasks: BackgroundTasks, authorization:
     _verify_api_key(authorization)
     result = analyze_content(request.content, request.channel)
     _update_stats(result["decision"])
+    logger.info("scan completed", extra={"extra_data": {"channel": request.channel, "decision": result["decision"], "risk_score": result["risk_score"]}})
     background_tasks.add_task(_fire_webhooks, result)
     return result
 
@@ -188,6 +192,7 @@ def guard(request: GuardRequest, background_tasks: BackgroundTasks, authorizatio
         result = analyze_content(request.content, request.channel)
 
     _update_stats(result["decision"])
+    logger.info("guard decision", extra={"extra_data": {"action": request.action, "source": request.source, "decision": result["decision"], "risk_score": result["risk_score"]}})
     background_tasks.add_task(_fire_webhooks, {**result, "source": request.source, "action": request.action})
 
     permitted = result["decision"] in ("ALLOW", "LOG")
