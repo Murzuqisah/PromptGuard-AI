@@ -27,6 +27,7 @@ PromptGuard AI provides a control point for enterprise LLM and agent workflows. 
 │  │  /scan, /scan-tool, /audit, /health                   │   │
 │  │  /v1/guard, /v1/batch, /v1/override, /v1/webhooks     │   │
 │  │  /v1/stats, /v1/export/sarif, /v1/policies            │   │
+│  │  /v1/queue, /v1/queue/{id}/resolve                    │   │
 │  └──────────────────────┬───────────────────────────────┘   │
 │  ┌──────────────────────▼───────────────────────────────┐   │
 │  │ Hybrid Detection Engine                               │   │
@@ -43,6 +44,7 @@ PromptGuard AI provides a control point for enterprise LLM and agent workflows. 
 │  ┌──────────────────────▼───────────────────────────────┐   │
 │  │ Output Layer                                          │   │
 │  │  ├─ Audit Trail (in-memory, tenant-scoped)            │   │
+│  │  ├─ Approval Queue (HUMAN_REVIEW → pending → resolve) │   │
 │  │  ├─ Webhook Delivery (HTTP endpoints)                 │   │
 │  │  └─ SIEM Connectors (Splunk, CloudWatch, Datadog, ES) │   │
 │  └──────────────────────────────────────────────────────┘   │

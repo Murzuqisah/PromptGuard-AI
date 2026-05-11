@@ -351,6 +351,65 @@ Security teams can override previous decisions with a full audit trail.
 
 ---
 
+## Human Approval Queue
+
+When a scan returns `HUMAN_REVIEW`, the event is automatically queued for manual approval.
+
+### View Pending Items
+
+**`GET /v1/queue`**
+
+```json
+{
+  "items": [
+    {
+      "queue_id": "event-uuid",
+      "channel": "output",
+      "risk_score": 35,
+      "summary": "HUMAN_REVIEW with risk score 35; detected secret_leakage.",
+      "status": "pending",
+      "queued_at": "2024-01-15T10:30:00+00:00",
+      "expires_at": "2024-01-15T11:30:00+00:00"
+    }
+  ],
+  "pending_count": 1
+}
+```
+
+Use `?status=all` to include resolved items.
+
+### Approve or Reject
+
+**`POST /v1/queue/{queue_id}/resolve`**
+
+```json
+{
+  "resolution": "approve",
+  "resolved_by": "analyst@company.com"
+}
+```
+
+Response:
+
+```json
+{
+  "queue_id": "event-uuid",
+  "status": "approved",
+  "resolved_at": "2024-01-15T10:35:00+00:00",
+  "resolved_by": "analyst@company.com"
+}
+```
+
+### Timeout Auto-Deny
+
+Items not resolved within the timeout (default: 1 hour) are automatically denied by the system. Configure via:
+
+```env
+PROMPTGUARD_APPROVAL_TIMEOUT=3600
+```
+
+---
+
 ## Policy Management
 
 Manage detection rules at runtime — enable/disable rules, adjust severity, or create custom rules.
@@ -887,6 +946,8 @@ docker compose up --build
 | POST | `/v1/batch` | Batch scan multiple items |
 | POST | `/v1/override` | Override a decision |
 | GET | `/v1/overrides` | List overrides |
+| GET | `/v1/queue` | Approval queue (pending/all) |
+| POST | `/v1/queue/{id}/resolve` | Approve or reject queued item |
 | POST | `/v1/webhooks` | Register webhook |
 | GET | `/v1/webhooks` | List webhooks |
 | DELETE | `/v1/webhooks/{id}` | Remove webhook |
