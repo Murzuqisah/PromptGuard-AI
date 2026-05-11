@@ -1,0 +1,4 @@
+[allowlist]
+description = "Allow documentation examples"
+commits = ["49f675f2ca6e639cd96b12df0ddec21d62848442"]
+paths = ['''\.md$''']

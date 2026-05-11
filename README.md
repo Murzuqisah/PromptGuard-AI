@@ -103,7 +103,7 @@ Call this endpoint **before** your AI agent executes any action:
 ```bash
 curl -X POST http://localhost:8000/v1/guard \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer $API_KEY" \
   -d '{
     "action": "execute_command",
     "content": "rm -rf /tmp/cache",
