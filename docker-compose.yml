@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    ports:
+      - "${PROMPTGUARD_PORT:-8000}:${PROMPTGUARD_PORT:-8000}"
+    env_file:
+      - .env
+  dashboard:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api
