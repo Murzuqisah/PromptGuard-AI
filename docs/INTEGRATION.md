@@ -55,6 +55,32 @@ PROMPTGUARD_API_AUTH_ENABLED=true
 PROMPTGUARD_API_KEYS=pk_prod_abc123,pk_prod_def456,pk_ci_pipeline_789
 ```
 
+### RBAC (Role-Based Access Control)
+
+Assign roles to API keys:
+
+```env
+PROMPTGUARD_API_KEY_ROLES=pk_prod_abc123:admin,pk_prod_def456:analyst,pk_ci_pipeline_789:viewer
+```
+
+| Role | Scan/Guard/Audit | Overrides/Policies | Webhooks |
+|------|-----------------|-------------------|----------|
+| viewer | ✅ | ❌ | ❌ |
+| analyst | ✅ | ✅ | ❌ |
+| admin | ✅ | ✅ | ✅ |
+
+### Multi-Tenancy
+
+Assign API keys to tenants for isolated audit trails:
+
+```env
+PROMPTGUARD_API_KEY_TENANTS=pk_prod_abc123:acme-corp,pk_prod_def456:acme-corp,pk_ci_pipeline_789:beta-inc
+```
+
+- Scan results include `tenant_id`
+- Audit trail is filtered per-tenant (tenant A cannot see tenant B's events)
+- Webhook payloads include `tenant_id` for routing
+
 ### Using API Keys
 
 Pass the key as a Bearer token in the `Authorization` header:
@@ -68,7 +94,7 @@ Authorization: Bearer pk_prod_abc123
 | Status | Meaning |
 |--------|---------|
 | `401` | Missing Authorization header |
-| `403` | Invalid API key |
+| `403` | Invalid API key or insufficient role |
 
 ### Best Practices
 
@@ -530,10 +556,33 @@ Code Change → Batch Scan Prompts/Configs → Pass/Fail Pipeline
 ### Pattern 4: SIEM Integration
 
 ```text
-PromptGuard → Webhook → SIEM (Splunk/Datadog/CloudWatch)
+PromptGuard → Webhook + Native Connectors → SIEM (Splunk/Datadog/CloudWatch/Elastic)
 ```
 
-Register webhooks for `DENY` and `HUMAN_REVIEW` events. PromptGuard pushes alerts in real-time.
+Two options:
+
+**Option A: Webhooks** — Register webhooks for `DENY` and `HUMAN_REVIEW` events. PromptGuard pushes alerts in real-time.
+
+**Option B: Native Connectors** — Configure via env vars. Events are dispatched automatically:
+
+```env
+# Splunk
+PROMPTGUARD_SPLUNK_HEC_URL=https://splunk:8088/services/collector/event
+PROMPTGUARD_SPLUNK_HEC_TOKEN=your-hec-token
+
+# AWS CloudWatch
+PROMPTGUARD_CLOUDWATCH_LOG_GROUP=/promptguard/events
+
+# Datadog
+PROMPTGUARD_DATADOG_API_KEY=your-dd-key
+PROMPTGUARD_DATADOG_SITE=datadoghq.com
+
+# Elasticsearch
+PROMPTGUARD_ELASTIC_URL=https://es:9200
+PROMPTGUARD_ELASTIC_INDEX=promptguard-events
+```
+
+Connectors auto-enable when credentials are present. Check `/health` to see which are active.
 
 ### Pattern 5: Human-in-the-Loop
 
