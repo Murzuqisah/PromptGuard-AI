@@ -21,6 +21,7 @@ from .config import (
 from .gemini import is_available as gemini_available
 from .middleware import RateLimitMiddleware
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
+from .database import get_all_policies, get_policy, update_policy, create_policy, delete_policy
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,27 @@ class WebhookRegisterRequest(BaseModel):
     url: str = Field(description="Webhook endpoint URL")
     events: list[str] = Field(default=["DENY", "HUMAN_REVIEW"], description="Events to subscribe to")
     secret: str = Field(default="", description="Optional shared secret for HMAC verification")
+
+
+class PolicyCreateRequest(BaseModel):
+    """Create a custom policy rule."""
+    rule_id: str = Field(min_length=1, max_length=20, description="Unique rule ID (e.g., PG-CUSTOM-001)")
+    name: str = Field(min_length=1, max_length=100)
+    category: str = Field(min_length=1, max_length=50)
+    severity: int = Field(ge=1, le=100)
+    decision: Literal["ALLOW", "LOG", "HUMAN_REVIEW", "DENY"]
+    explanation: str = Field(min_length=1, max_length=500)
+    pattern: str = Field(default="", description="Regex pattern for detection")
+    enabled: bool = True
+
+
+class PolicyUpdateRequest(BaseModel):
+    """Update a policy rule."""
+    enabled: bool | None = None
+    name: str | None = None
+    severity: int | None = Field(default=None, ge=1, le=100)
+    decision: Literal["ALLOW", "LOG", "HUMAN_REVIEW", "DENY"] | None = None
+    explanation: str | None = None
 
 
 # ─── State ────────────────────────────────────────────────────────────────────
@@ -317,3 +339,58 @@ def stats(authorization: str | None = Header(default=None)) -> dict[str, Any]:
         "threat_rate": round((STATS["denied"] + STATS["review"]) / total * 100, 1),
         "ai_enabled": gemini_available(),
     }
+
+
+# ─── Policy CRUD Endpoints ────────────────────────────────────────────────────
+
+@app.get("/v1/policies")
+def list_policies(category: str | None = None, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """List all policy rules with their enabled/disabled state."""
+    _verify_api_key(authorization)
+    policies = get_all_policies()
+    if category:
+        policies = [p for p in policies if p["category"] == category]
+    return {"policies": policies, "total": len(policies)}
+
+
+@app.get("/v1/policies/{rule_id}")
+def get_policy_detail(rule_id: str, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Get a single policy rule by ID."""
+    _verify_api_key(authorization)
+    policy = get_policy(rule_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail=f"Policy {rule_id} not found")
+    return policy
+
+
+@app.patch("/v1/policies/{rule_id}")
+def patch_policy(rule_id: str, request: PolicyUpdateRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Update a policy rule (enable/disable, change severity, etc)."""
+    _verify_api_key(authorization)
+    existing = get_policy(rule_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Policy {rule_id} not found")
+    updates = request.model_dump(exclude_none=True)
+    updated = update_policy(rule_id, updates)
+    return updated  # type: ignore
+
+
+@app.post("/v1/policies")
+def create_custom_policy(request: PolicyCreateRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Create a custom policy rule."""
+    _verify_api_key(authorization)
+    existing = get_policy(request.rule_id)
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Policy {request.rule_id} already exists")
+    policy = create_policy(request.model_dump())
+    return policy  # type: ignore
+
+
+@app.delete("/v1/policies/{rule_id}")
+def delete_custom_policy(rule_id: str, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Delete a custom policy rule. Built-in rules cannot be deleted."""
+    _verify_api_key(authorization)
+    deleted = delete_policy(rule_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Policy {rule_id} not found or is a built-in rule")
+    return {"status": "deleted", "rule_id": rule_id}
