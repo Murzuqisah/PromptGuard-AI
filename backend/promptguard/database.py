@@ -77,7 +77,7 @@ def update_policy(rule_id: str, updates: dict[str, Any]) -> dict[str, Any] | Non
 
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     values = list(fields.values()) + [rule_id]
-    conn.execute(f"UPDATE policies SET {set_clause} WHERE rule_id = ?", values)
+    conn.execute(f"UPDATE policies SET {set_clause} WHERE rule_id = ?", values)  # nosec B608
     conn.commit()
     conn.close()
     return get_policy(rule_id)

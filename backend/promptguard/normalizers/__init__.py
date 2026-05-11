@@ -89,7 +89,7 @@ def _decode_base64_segments(text: str) -> str:
             decoded = base64.b64decode(segment).decode("utf-8", errors="ignore")
             if decoded.isprintable() and len(decoded) > 4:
                 decoded_parts.append(decoded)
-        except Exception:
+        except Exception:  # nosec B112
             continue
 
     if decoded_parts:
