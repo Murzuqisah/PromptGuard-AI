@@ -1,0 +1,21 @@
+{
+  "name": "@promptguard/sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for PromptGuard AI — enterprise agent firewall",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["promptguard", "ai-firewall", "security", "llm", "agent"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Murzuqisah/PromptGuard-AI"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
