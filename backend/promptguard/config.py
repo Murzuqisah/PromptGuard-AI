@@ -29,3 +29,8 @@ GEMINI_ENABLED: bool = os.getenv("GEMINI_ENABLED", "true").lower() in ("1", "tru
 # Webhooks
 WEBHOOK_URLS: list[str] = [u.strip() for u in os.getenv("PROMPTGUARD_WEBHOOK_URLS", "").split(",") if u.strip()]
 WEBHOOK_EVENTS: list[str] = os.getenv("PROMPTGUARD_WEBHOOK_EVENTS", "DENY,HUMAN_REVIEW").split(",")
+
+# Rate Limiting
+RATE_LIMIT_ENABLED: bool = os.getenv("PROMPTGUARD_RATE_LIMIT_ENABLED", "true").lower() in ("1", "true", "yes")
+RATE_LIMIT_REQUESTS: int = int(os.getenv("PROMPTGUARD_RATE_LIMIT_REQUESTS", "60"))
+RATE_LIMIT_WINDOW: int = int(os.getenv("PROMPTGUARD_RATE_LIMIT_WINDOW", "60"))

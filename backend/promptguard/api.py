@@ -19,6 +19,7 @@ from .config import (
     WEBHOOK_EVENTS,
 )
 from .gemini import is_available as gemini_available
+from .middleware import RateLimitMiddleware
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware)
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
