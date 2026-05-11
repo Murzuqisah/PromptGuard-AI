@@ -34,3 +34,6 @@ WEBHOOK_EVENTS: list[str] = os.getenv("PROMPTGUARD_WEBHOOK_EVENTS", "DENY,HUMAN_
 RATE_LIMIT_ENABLED: bool = os.getenv("PROMPTGUARD_RATE_LIMIT_ENABLED", "true").lower() in ("1", "true", "yes")
 RATE_LIMIT_REQUESTS: int = int(os.getenv("PROMPTGUARD_RATE_LIMIT_REQUESTS", "60"))
 RATE_LIMIT_WINDOW: int = int(os.getenv("PROMPTGUARD_RATE_LIMIT_WINDOW", "60"))
+
+# Database
+DATABASE_PATH: str = os.getenv("PROMPTGUARD_DATABASE_PATH", str(_project_root / "data" / "promptguard.db"))
