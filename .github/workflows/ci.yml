@@ -37,4 +37,6 @@ jobs:
         run: bandit -r backend/promptguard
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
