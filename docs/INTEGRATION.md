@@ -55,6 +55,32 @@ PROMPTGUARD_API_AUTH_ENABLED=true
 PROMPTGUARD_API_KEYS=pk_prod_abc123,pk_prod_def456,pk_ci_pipeline_789
 ```
 
+### RBAC (Role-Based Access Control)
+
+Assign roles to API keys:
+
+```env
+PROMPTGUARD_API_KEY_ROLES=pk_prod_abc123:admin,pk_prod_def456:analyst,pk_ci_pipeline_789:viewer
+```
+
+| Role | Scan/Guard/Audit | Overrides/Policies | Webhooks |
+|------|-----------------|-------------------|----------|
+| viewer | ✅ | ❌ | ❌ |
+| analyst | ✅ | ✅ | ❌ |
+| admin | ✅ | ✅ | ✅ |
+
+### Multi-Tenancy
+
+Assign API keys to tenants for isolated audit trails:
+
+```env
+PROMPTGUARD_API_KEY_TENANTS=pk_prod_abc123:acme-corp,pk_prod_def456:acme-corp,pk_ci_pipeline_789:beta-inc
+```
+
+- Scan results include `tenant_id`
+- Audit trail is filtered per-tenant (tenant A cannot see tenant B's events)
+- Webhook payloads include `tenant_id` for routing
+
 ### Using API Keys
 
 Pass the key as a Bearer token in the `Authorization` header:
@@ -68,7 +94,7 @@ Authorization: Bearer pk_prod_abc123
 | Status | Meaning |
 |--------|---------|
 | `401` | Missing Authorization header |
-| `403` | Invalid API key |
+| `403` | Invalid API key or insufficient role |
 
 ### Best Practices
 
@@ -325,6 +351,65 @@ Security teams can override previous decisions with a full audit trail.
 
 ---
 
+## Human Approval Queue
+
+When a scan returns `HUMAN_REVIEW`, the event is automatically queued for manual approval.
+
+### View Pending Items
+
+**`GET /v1/queue`**
+
+```json
+{
+  "items": [
+    {
+      "queue_id": "event-uuid",
+      "channel": "output",
+      "risk_score": 35,
+      "summary": "HUMAN_REVIEW with risk score 35; detected secret_leakage.",
+      "status": "pending",
+      "queued_at": "2024-01-15T10:30:00+00:00",
+      "expires_at": "2024-01-15T11:30:00+00:00"
+    }
+  ],
+  "pending_count": 1
+}
+```
+
+Use `?status=all` to include resolved items.
+
+### Approve or Reject
+
+**`POST /v1/queue/{queue_id}/resolve`**
+
+```json
+{
+  "resolution": "approve",
+  "resolved_by": "analyst@company.com"
+}
+```
+
+Response:
+
+```json
+{
+  "queue_id": "event-uuid",
+  "status": "approved",
+  "resolved_at": "2024-01-15T10:35:00+00:00",
+  "resolved_by": "analyst@company.com"
+}
+```
+
+### Timeout Auto-Deny
+
+Items not resolved within the timeout (default: 1 hour) are automatically denied by the system. Configure via:
+
+```env
+PROMPTGUARD_APPROVAL_TIMEOUT=3600
+```
+
+---
+
 ## Policy Management
 
 Manage detection rules at runtime — enable/disable rules, adjust severity, or create custom rules.
@@ -530,10 +615,33 @@ Code Change → Batch Scan Prompts/Configs → Pass/Fail Pipeline
 ### Pattern 4: SIEM Integration
 
 ```text
-PromptGuard → Webhook → SIEM (Splunk/Datadog/CloudWatch)
+PromptGuard → Webhook + Native Connectors → SIEM (Splunk/Datadog/CloudWatch/Elastic)
 ```
 
-Register webhooks for `DENY` and `HUMAN_REVIEW` events. PromptGuard pushes alerts in real-time.
+Two options:
+
+**Option A: Webhooks** — Register webhooks for `DENY` and `HUMAN_REVIEW` events. PromptGuard pushes alerts in real-time.
+
+**Option B: Native Connectors** — Configure via env vars. Events are dispatched automatically:
+
+```env
+# Splunk
+PROMPTGUARD_SPLUNK_HEC_URL=https://splunk:8088/services/collector/event
+PROMPTGUARD_SPLUNK_HEC_TOKEN=your-hec-token
+
+# AWS CloudWatch
+PROMPTGUARD_CLOUDWATCH_LOG_GROUP=/promptguard/events
+
+# Datadog
+PROMPTGUARD_DATADOG_API_KEY=your-dd-key
+PROMPTGUARD_DATADOG_SITE=datadoghq.com
+
+# Elasticsearch
+PROMPTGUARD_ELASTIC_URL=https://es:9200
+PROMPTGUARD_ELASTIC_INDEX=promptguard-events
+```
+
+Connectors auto-enable when credentials are present. Check `/health` to see which are active.
 
 ### Pattern 5: Human-in-the-Loop
 
@@ -838,6 +946,8 @@ docker compose up --build
 | POST | `/v1/batch` | Batch scan multiple items |
 | POST | `/v1/override` | Override a decision |
 | GET | `/v1/overrides` | List overrides |
+| GET | `/v1/queue` | Approval queue (pending/all) |
+| POST | `/v1/queue/{id}/resolve` | Approve or reject queued item |
 | POST | `/v1/webhooks` | Register webhook |
 | GET | `/v1/webhooks` | List webhooks |
 | DELETE | `/v1/webhooks/{id}` | Remove webhook |

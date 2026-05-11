@@ -24,6 +24,8 @@ from .rbac import require_role
 from .sarif import generate_sarif
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 from .tenant import resolve_tenant
+from .connectors import dispatch_to_siem, get_enabled_connectors
+from .queue import enqueue, get_pending, get_all as get_all_queue, resolve as resolve_queue_item
 from .database import get_all_policies, get_policy, update_policy, create_policy, delete_policy
 
 setup_logging()
@@ -165,6 +167,8 @@ async def _fire_webhooks(event: dict[str, Any]) -> None:
                 await client.post(url, json=event)
             except Exception as e:
                 logger.warning(f"Webhook delivery failed to {url}: {e}")
+    # Dispatch to SIEM connectors
+    await dispatch_to_siem(event)
 
 
 def _update_stats(decision: str) -> None:
@@ -191,6 +195,7 @@ def health() -> dict[str, Any]:
         "ai_enabled": gemini_available(),
         "auth_enabled": API_AUTH_ENABLED,
         "webhooks_configured": len(WEBHOOK_URLS) + len(REGISTERED_WEBHOOKS),
+        "siem_connectors": [c.name for c in get_enabled_connectors()],
     }
 
 
@@ -263,6 +268,8 @@ def guard(request: GuardRequest, background_tasks: BackgroundTasks, authorizatio
     background_tasks.add_task(_fire_webhooks, {**result, "source": request.source, "action": request.action})
 
     permitted = result["decision"] in ("ALLOW", "LOG")
+    if result["decision"] == "HUMAN_REVIEW":
+        enqueue({**result, "source": request.source, "action": request.action})
 
     return {
         "permitted": permitted,
@@ -480,3 +487,45 @@ def delete_custom_policy(rule_id: str, authorization: str | None = Header(defaul
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Policy {rule_id} not found or is a built-in rule")
     return {"status": "deleted", "rule_id": rule_id}
+
+
+# --- Approval Queue Models ---
+
+class QueueResolveRequest(BaseModel):
+    resolution: Literal["approve", "reject"] = Field(description="Approve or reject the queued item")
+    resolved_by: str = Field(min_length=1, max_length=200, description="Identity of the resolver", examples=["analyst@company.com"])
+
+
+# --- Approval Queue Endpoints ---
+
+@app.get("/v1/queue", tags=["Metrics"], summary="List approval queue")
+def list_queue(
+    status: str | None = None,
+    limit: int = Query(default=50, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """List items in the human approval queue.
+
+    Returns pending items by default. Use ?status=all to see resolved items too.
+    """
+    require_role("override", authorization)
+    tenant_id = resolve_tenant(authorization)
+    if status == "all":
+        items = get_all_queue(tenant_id=tenant_id, limit=limit)
+    else:
+        items = get_pending(tenant_id=tenant_id)
+    return {"items": items, "pending_count": len([i for i in items if i["status"] == "pending"])}
+
+
+@app.post("/v1/queue/{queue_id}/resolve", tags=["Metrics"], summary="Approve or reject queued item")
+def resolve_queue(queue_id: str, request: QueueResolveRequest, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Approve or reject a HUMAN_REVIEW item in the queue.
+
+    Approved items can proceed. Rejected items are blocked.
+    All resolutions are audit-logged with timestamp and identity.
+    """
+    require_role("override", authorization)
+    result = resolve_queue_item(queue_id, request.resolution, request.resolved_by)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Queue item {queue_id} not found or already resolved")
+    return result

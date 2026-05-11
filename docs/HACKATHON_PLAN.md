@@ -26,15 +26,7 @@ PromptGuard AI is an AI security gateway built with an AI-assisted development w
 - Local fallback scanner when API is offline.
 - Category filtering, severity badges, enable/disable toggles on policy page.
 
-## Milestone 4: Production Readiness ✅
-
-- Environment-based configuration (single `.env` at project root).
-- Docker multi-stage build for frontend (nginx).
-- SPA routing support in production.
-- Dev script to run both services concurrently.
-- No hardcoded secrets or URLs.
-
-## Milestone 5: AI Integration ✅
+## Milestone 4: AI Integration ✅
 
 - Google Gemini AI as a second-pass semantic analysis layer.
 - Hybrid detection: regex (fast, deterministic) + AI (deep, semantic).
@@ -44,18 +36,41 @@ PromptGuard AI is an AI security gateway built with an AI-assisted development w
 - Graceful degradation: works without API key in regex-only mode.
 - Frontend shows AI status in sidebar and "AI Enhanced" badge on results.
 
-## Milestone 6: Demo & Submission
+## Milestone 5: Enterprise API ✅
 
-- Public GitHub repository.
-- Deployed dashboard URL.
-- Two-minute demo video showing all four scenarios.
-- Slide deck: problem, architecture, demo, business value, roadmap.
-- Cover image showing the dashboard decision packet.
+- Guard gateway (`/v1/guard`) — primary integration point for AI agents.
+- Batch scanning (`/v1/batch`) — CI/CD pipeline integration.
+- Webhook alerts — real-time notifications to any HTTP endpoint.
+- Decision overrides — security team manual approval with audit trail.
+- Security metrics (`/v1/stats`) — dashboard-ready statistics.
+- API key authentication with Bearer tokens.
+
+## Milestone 6: Production Hardening ✅
+
+- Rate limiting: sliding window per-client with configurable thresholds.
+- Policy persistence: SQLite-backed rule management with CRUD API.
+- SARIF 2.1.0 export for GitHub Advanced Security.
+- OpenAPI documentation with tags, examples, and static spec.
+- Deployment guides with Terraform templates (AWS ECS, GCP Cloud Run).
+- Structured JSON logging with per-request correlation IDs.
+- Input normalization: unicode, homoglyphs, base64, spacing tricks.
+
+## Milestone 7: Enterprise Features ✅ (partial)
+
+- RBAC: admin, analyst, viewer roles with hierarchical permissions.
+- Multi-tenant: isolated audit trails, tenant-scoped scan results.
+- SIEM connectors: Splunk HEC, AWS CloudWatch, Datadog, Elasticsearch/OpenSearch.
+- Human approval queue: HUMAN_REVIEW decisions auto-enqueued, approve/reject via API, timeout auto-deny.
+
+## Remaining
+
+- Python and npm SDK packages.
+- Real-time WebSocket event streaming.
 
 ## Judging Narrative
 
-- **Technology integration**: API gateway, 35-rule scanner engine, Gemini AI semantic analysis, React dashboard, audit trail, Docker, CI security scanning.
-- **Business value**: enterprises need AI governance before broad LLM and agent rollout.
-- **Originality**: focuses on the overlooked control plane between users, models, and tools. Hybrid regex+AI approach gives best of both worlds.
-- **Presentation**: live attack scenarios produce memorable allow/deny outcomes. AI badge shows when semantic analysis contributed.
-- **Completeness**: environment config, documentation, tests, Docker, CI, and graceful degradation all in place.
+- **Technology integration**: API gateway, 35-rule scanner engine, Gemini AI semantic analysis, React dashboard, SIEM connectors, RBAC, multi-tenant, SQLite persistence, Terraform IaC, Docker, CI.
+- **Business value**: enterprises need AI governance before broad LLM and agent rollout. PromptGuard provides the missing control plane.
+- **Originality**: focuses on the overlooked security layer between users, models, and tools. Hybrid regex+AI approach gives best of both worlds.
+- **Presentation**: live attack scenarios produce memorable allow/deny outcomes. AI badge shows when semantic analysis contributed. SIEM integration demonstrates enterprise readiness.
+- **Completeness**: 46 tests, structured logging, rate limiting, RBAC, multi-tenant, SARIF export, OpenAPI spec, deployment guides, and comprehensive documentation.

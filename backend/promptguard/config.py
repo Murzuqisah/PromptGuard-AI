@@ -11,7 +11,7 @@ load_dotenv(_project_root / ".env")
 
 
 API_PORT: int = int(os.getenv("PROMPTGUARD_PORT", "8000"))
-API_HOST: str = os.getenv("PROMPTGUARD_HOST", "0.0.0.0")
+API_HOST: str = os.getenv("PROMPTGUARD_HOST", "0.0.0.0")  # nosec B104
 CORS_ORIGINS: list[str] = os.getenv("PROMPTGUARD_CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 LOG_LEVEL: str = os.getenv("PROMPTGUARD_LOG_LEVEL", "info")
 AUDIT_MAX_EVENTS: int = int(os.getenv("PROMPTGUARD_AUDIT_MAX_EVENTS", "500"))

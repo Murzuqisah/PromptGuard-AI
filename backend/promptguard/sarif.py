@@ -17,14 +17,6 @@ _SEVERITY_MAP = {
     "ALLOW": "none",
 }
 
-_CATEGORY_TO_RULE_INDEX: dict[str, str] = {
-    "prompt_injection": "security",
-    "policy_violation": "security",
-    "secret_leakage": "security",
-    "dangerous_tool_call": "security",
-    "ai_analysis": "security",
-}
-
 
 def generate_sarif(limit: int = 100) -> dict[str, Any]:
     """Generate a SARIF 2.1.0 document from recent audit events."""

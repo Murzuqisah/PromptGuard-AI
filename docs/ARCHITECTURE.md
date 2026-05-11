@@ -17,17 +17,24 @@ PromptGuard AI provides a control point for enterprise LLM and agent workflows. 
 ┌────────────────────────▼────────────────────────────────────┐
 │  Backend (FastAPI)                                           │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │ API Layer: /scan, /scan-tool, /audit, /health        │   │
+│  │ Middleware: CORS → Rate Limiter → Correlation ID      │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│  ┌──────────────────────▼───────────────────────────────┐   │
+│  │ Auth: RBAC (admin/analyst/viewer) + Multi-tenant      │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│  ┌──────────────────────▼───────────────────────────────┐   │
+│  │ API Layer                                             │   │
+│  │  /scan, /scan-tool, /audit, /health                   │   │
+│  │  /v1/guard, /v1/batch, /v1/override, /v1/webhooks     │   │
+│  │  /v1/stats, /v1/export/sarif, /v1/policies            │   │
+│  │  /v1/queue, /v1/queue/{id}/resolve                    │   │
 │  └──────────────────────┬───────────────────────────────┘   │
 │  ┌──────────────────────▼───────────────────────────────┐   │
 │  │ Hybrid Detection Engine                               │   │
+│  │  ├─ Input Normalization (unicode, homoglyphs, base64) │   │
 │  │  ├─ Pass 1: Regex Rules (35 patterns, <1ms)           │   │
-│  │  │   ├─ Prompt Injection Rules (7)                    │   │
-│  │  │   ├─ Policy Violation Rules (6)                    │   │
-│  │  │   ├─ Secret Leakage Rules (12)                     │   │
-│  │  │   └─ Tool Governance Rules (10)                    │   │
 │  │  ├─ Pass 2: Gemini AI Analysis (~500ms)               │   │
-│  │  │   └─ Semantic threat detection (skipped if DENY)   │   │
+│  │  │   └─ Skipped if regex already produced DENY        │   │
 │  │  └─ Finding merge & deduplication                     │   │
 │  └──────────────────────┬───────────────────────────────┘   │
 │  ┌──────────────────────▼───────────────────────────────┐   │
@@ -35,7 +42,14 @@ PromptGuard AI provides a control point for enterprise LLM and agent workflows. 
 │  │  Risk scoring → ALLOW / LOG / HUMAN_REVIEW / DENY     │   │
 │  └──────────────────────┬───────────────────────────────┘   │
 │  ┌──────────────────────▼───────────────────────────────┐   │
-│  │ Audit Trail (in-memory, capped at AUDIT_MAX_EVENTS)   │   │
+│  │ Output Layer                                          │   │
+│  │  ├─ Audit Trail (in-memory, tenant-scoped)            │   │
+│  │  ├─ Approval Queue (HUMAN_REVIEW → pending → resolve) │   │
+│  │  ├─ Webhook Delivery (HTTP endpoints)                 │   │
+│  │  └─ SIEM Connectors (Splunk, CloudWatch, Datadog, ES) │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Persistence: SQLite (policy rules, enable/disable)    │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -51,36 +65,45 @@ PromptGuard AI provides a control point for enterprise LLM and agent workflows. 
 
 ### Backend
 
-- **Tech**: Python, FastAPI, Pydantic, python-dotenv
-- **Config**: all settings loaded from `.env` at project root via `python-dotenv`
-- **Endpoints**:
-  - `GET /health` — service health check
-  - `POST /scan` — scan prompt, output, or file content
-  - `POST /scan-tool` — scan tool call with arguments
-  - `GET /audit` — retrieve audit trail events
+- **Tech**: Python, FastAPI, Pydantic, python-dotenv, httpx, SQLite
+- **Config**: all settings loaded from `.env` at project root
+- **Middleware stack**: CORS → Rate Limiter → Correlation ID
+- **Auth**: RBAC with admin/analyst/viewer roles, multi-tenant isolation
 
 ### Detection Engine
 
-**Hybrid approach**: regex + AI working together.
+**Multi-layer pipeline**:
 
-| Pass | Engine | Latency | Purpose |
-|------|--------|---------|---------|
-| 1 | Regex (35 rules) | <1ms | Fast deterministic blocking of known patterns |
-| 2 | Gemini AI | ~500ms | Semantic analysis of novel/subtle threats |
+| Layer | Component | Latency | Purpose |
+|-------|-----------|---------|---------|
+| 1 | Input Normalization | <1ms | Defeat obfuscation (unicode, homoglyphs, base64, spacing) |
+| 2 | Regex Rules (35) | <1ms | Fast deterministic blocking of known patterns |
+| 3 | Gemini AI | ~500ms | Semantic analysis of novel/subtle threats |
+| 4 | Finding Merge | <1ms | Deduplicate regex + AI findings |
 
 AI is skipped when:
 - `GEMINI_API_KEY` is not set
 - `GEMINI_ENABLED` is `false`
-- Regex already produced a `DENY` decision (no need for further analysis)
+- Regex already produced a `DENY` decision
 
-35 deterministic regex-based rules across 4 categories:
+### Policy Persistence
 
-| Category | Count | Covers |
-|----------|-------|--------|
-| Prompt Injection | 7 | Instruction override, credential exfiltration, role manipulation, prompt leaking, encoding evasion, indirect injection, multi-language bypass |
-| Policy Violation | 6 | Social engineering, malware generation, SQL injection, XSS, SSRF, privilege escalation |
-| Secret Leakage | 12 | AWS keys, JWTs, GitHub/Slack/Stripe/Google tokens, private keys, bearer tokens, DB strings, webhooks |
-| Tool Governance | 10 | Destructive commands, reverse shells, Docker escape, network exfil, memory dumps, firewall disable, cron injection, env harvesting |
+- SQLite database at `PROMPTGUARD_DATABASE_PATH`
+- Auto-seeds 35 built-in rules on first run
+- Rules can be enabled/disabled via API
+- Custom rules can be created/deleted
+- Built-in rules are protected from deletion
+
+### SIEM Connectors
+
+| Connector | Protocol | Schema |
+|-----------|----------|--------|
+| Splunk HEC | HTTPS POST | `sourcetype: promptguard:scan` |
+| AWS CloudWatch | PutLogEvents | JSON log events |
+| Datadog | HTTPS POST | `ddsource: promptguard` with ddtags |
+| Elastic/OpenSearch | HTTPS POST | ECS-compatible `@timestamp` fields |
+
+Connectors auto-enable when their env vars are configured.
 
 ## Decision Model
 
@@ -96,34 +119,30 @@ Any DENY rule   → DENY (regardless of score)
 Any REVIEW rule → HUMAN_REVIEW (minimum)
 ```
 
+## RBAC
+
+| Role | Scan/Guard/Audit/Stats | Overrides/Policies | Webhooks |
+|------|------------------------|-------------------|----------|
+| viewer | ✅ | ❌ | ❌ |
+| analyst | ✅ | ✅ | ❌ |
+| admin | ✅ | ✅ | ✅ |
+
+## Multi-Tenancy
+
+- API keys map to tenant IDs via `PROMPTGUARD_API_KEY_TENANTS`
+- All scan results include `tenant_id`
+- Audit trail is filtered per-tenant (tenant A cannot see tenant B's events)
+- Webhook payloads include `tenant_id` for downstream routing
+
+## Data Handling
+
+- Audit log stores: event ID, timestamp, tenant_id, channel, decision, risk score, summary, finding count, content SHA-256
+- Raw content is never persisted in the audit trail
+- Secrets are masked before being returned in API responses
+- Structured JSON logs with correlation IDs for distributed tracing
+
 ## Configuration
 
 All environment variables are defined in a single `.env` file at the project root. Both the backend (via `python-dotenv`) and frontend (via Vite's `envDir`) read from this file.
 
 See `.env.example` for the full list of variables.
-
-## Gemini AI Integration
-
-The AI layer uses Google's Gemini API (`google-genai` SDK). It:
-
-1. Receives the content and channel type
-2. Analyzes for threats across all 4 categories using a structured system prompt
-3. Returns JSON with threat assessment, risk score, and findings
-4. Findings are merged with regex results (deduplicated by category + name)
-5. AI severity is capped at 55 to ensure it escalates to `HUMAN_REVIEW` but doesn't unilaterally `DENY` without regex confirmation
-
-To enable: set `GEMINI_API_KEY` in your `.env` file. Get a key from [Google AI Studio](https://aistudio.google.com/apikey).
-
-## Data Handling
-
-- The audit log stores: event ID, timestamp, channel, decision, risk score, summary, finding count, and content SHA-256 hash.
-- Raw content is never persisted in the audit trail.
-- Secrets are masked before being returned in API responses.
-
-## Future Integration Points
-
-- LLM provider proxying: route requests through PromptGuard after `ALLOW` decisions.
-- SIEM webhooks: forward audit events to Splunk, Datadog, or CloudWatch.
-- SARIF export: publish findings to GitHub code scanning.
-- Policy persistence: store rule configurations in a database with tenant isolation.
-- Human approval queues: hold `HUMAN_REVIEW` decisions until manual approval.
