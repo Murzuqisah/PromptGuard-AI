@@ -15,7 +15,7 @@ from .rules import Channel, Decision, PROMPT_RULES, SECRET_RULES, TOOL_RULES, Ru
 AUDIT_EVENTS: list[dict[str, Any]] = []
 
 
-def analyze_content(content: str, channel: Channel | str = Channel.PROMPT) -> dict[str, Any]:
+def analyze_content(content: str, channel: Channel | str = Channel.PROMPT, tenant_id: str = "default") -> dict[str, Any]:
     channel_value = Channel(channel)
 
     # Layer 1: Input normalization
@@ -47,12 +47,13 @@ def analyze_content(content: str, channel: Channel | str = Channel.PROMPT) -> di
         masked_content=masked_content,
         ai_enhanced=ai_findings is not None,
         normalized_input=normalized if normalized != content else None,
+        tenant_id=tenant_id,
     )
     _record_audit(result)
     return result
 
 
-def analyze_tool_call(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def analyze_tool_call(tool_name: str, arguments: dict[str, Any], tenant_id: str = "default") -> dict[str, Any]:
     subject = f"{tool_name} {arguments}"
 
     # Normalize tool call content
@@ -74,13 +75,17 @@ def analyze_tool_call(tool_name: str, arguments: dict[str, Any]) -> dict[str, An
         masked_content=mask_secrets(subject),
         metadata={"tool_name": tool_name, "arguments": arguments},
         ai_enhanced=ai_findings is not None,
+        tenant_id=tenant_id,
     )
     _record_audit(result)
     return result
 
 
-def get_audit_events(limit: int = 50) -> list[dict[str, Any]]:
-    return AUDIT_EVENTS[-limit:][::-1]
+def get_audit_events(limit: int = 50, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    events = AUDIT_EVENTS[-limit * 5:][::-1]  # over-fetch then filter
+    if tenant_id:
+        events = [e for e in events if e.get("tenant_id") == tenant_id]
+    return events[:limit]
 
 
 def mask_secrets(content: str) -> str:
@@ -165,12 +170,14 @@ def _build_result(
     metadata: dict[str, Any] | None = None,
     ai_enhanced: bool = False,
     normalized_input: str | None = None,
+    tenant_id: str = "default",
 ) -> dict[str, Any]:
     risk_score = min(100, sum(finding["severity"] for finding in matches))
     decision = _decision_for(risk_score, matches)
     result: dict[str, Any] = {
         "event_id": str(uuid4()),
         "timestamp": datetime.now(UTC).isoformat(),
+        "tenant_id": tenant_id,
         "channel": channel,
         "decision": decision.value,
         "risk_score": risk_score,
@@ -223,6 +230,7 @@ def _record_audit(result: dict[str, Any]) -> None:
         {
             "event_id": result["event_id"],
             "timestamp": result["timestamp"],
+            "tenant_id": result.get("tenant_id", "default"),
             "channel": result["channel"],
             "decision": result["decision"],
             "risk_score": result["risk_score"],
