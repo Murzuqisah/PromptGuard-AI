@@ -1,0 +1,15 @@
+[allowlist]
+description = "Allow documentation examples"
+paths = [
+  '''docs/.*''',
+]
+
+[[allowlist.commits]]
+description = "README curl examples with placeholder keys"
+hash = "49f675f2ca6e639cd96b12df0ddec21d62848442"
+
+[[rules]]
+id = "curl-auth-header-allowlist"
+description = "Ignore Bearer token in documentation examples"
+regex = '''Authorization:\s*Bearer\s*(your-api-key|pk_prod_abc123|pk_monitoring|key-admin|key-analyst|key-viewer|key1)'''
+allowlist = true
