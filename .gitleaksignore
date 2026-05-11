@@ -1,0 +1,2 @@
+# False positive: curl example in README with placeholder "your-api-key"
+49f675f2ca6e639cd96b12df0ddec21d62848442:README.md:curl-auth-header
