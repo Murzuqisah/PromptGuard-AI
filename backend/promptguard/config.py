@@ -21,6 +21,15 @@ MAX_CONTENT_LENGTH: int = int(os.getenv("PROMPTGUARD_MAX_CONTENT_LENGTH", "10000
 API_KEYS: list[str] = [k.strip() for k in os.getenv("PROMPTGUARD_API_KEYS", "").split(",") if k.strip()]
 API_AUTH_ENABLED: bool = os.getenv("PROMPTGUARD_API_AUTH_ENABLED", "false").lower() in ("1", "true", "yes")
 
+# RBAC — maps API keys to roles. Format: key1:admin,key2:analyst,key3:viewer
+# Keys not in this mapping default to "viewer" role
+_rbac_raw = os.getenv("PROMPTGUARD_API_KEY_ROLES", "")
+API_KEY_ROLES: dict[str, str] = {}
+for entry in _rbac_raw.split(","):
+    if ":" in entry:
+        key, role = entry.strip().rsplit(":", 1)
+        API_KEY_ROLES[key.strip()] = role.strip()
+
 # Gemini AI
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
