@@ -29,3 +29,6 @@ GEMINI_ENABLED: bool = os.getenv("GEMINI_ENABLED", "true").lower() in ("1", "tru
 # Webhooks
 WEBHOOK_URLS: list[str] = [u.strip() for u in os.getenv("PROMPTGUARD_WEBHOOK_URLS", "").split(",") if u.strip()]
 WEBHOOK_EVENTS: list[str] = os.getenv("PROMPTGUARD_WEBHOOK_EVENTS", "DENY,HUMAN_REVIEW").split(",")
+
+# Database
+DATABASE_PATH: str = os.getenv("PROMPTGUARD_DATABASE_PATH", str(_project_root / "data" / "promptguard.db"))
