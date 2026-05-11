@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from .config import AUDIT_MAX_EVENTS
+from .database import get_disabled_rule_ids
 from .gemini import analyze as gemini_analyze, is_available as gemini_available
 from .normalizers import normalize
 from .rules import Channel, Decision, PROMPT_RULES, SECRET_RULES, TOOL_RULES, Rule
@@ -140,8 +141,11 @@ def _merge_findings(regex_findings: list[dict[str, Any]], ai_findings: list[dict
 
 
 def _find_matches(content: str, rules: list[Rule]) -> list[dict[str, Any]]:
+    disabled = get_disabled_rule_ids()
     findings: list[dict[str, Any]] = []
     for rule in rules:
+        if rule.rule_id in disabled:
+            continue
         for match in rule.pattern.finditer(content):
             findings.append(
                 {
