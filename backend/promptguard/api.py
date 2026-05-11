@@ -19,6 +19,7 @@ from .config import (
     WEBHOOK_EVENTS,
 )
 from .gemini import is_available as gemini_available
+from .sarif import generate_sarif
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 
 logger = logging.getLogger(__name__)
@@ -315,3 +316,13 @@ def stats(authorization: str | None = Header(default=None)) -> dict[str, Any]:
         "threat_rate": round((STATS["denied"] + STATS["review"]) / total * 100, 1),
         "ai_enabled": gemini_available(),
     }
+
+
+@app.get("/v1/export/sarif")
+def export_sarif(limit: int = 100, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """
+    Export scan findings as SARIF 2.1.0 for GitHub Advanced Security.
+    Upload the output to GitHub code scanning via the API or Actions.
+    """
+    _verify_api_key(authorization)
+    return generate_sarif(limit)
