@@ -24,6 +24,7 @@ from .rbac import require_role
 from .sarif import generate_sarif
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
 from .tenant import resolve_tenant
+from .connectors import dispatch_to_siem, get_enabled_connectors
 from .database import get_all_policies, get_policy, update_policy, create_policy, delete_policy
 
 setup_logging()
@@ -165,6 +166,8 @@ async def _fire_webhooks(event: dict[str, Any]) -> None:
                 await client.post(url, json=event)
             except Exception as e:
                 logger.warning(f"Webhook delivery failed to {url}: {e}")
+    # Dispatch to SIEM connectors
+    await dispatch_to_siem(event)
 
 
 def _update_stats(decision: str) -> None:
@@ -191,6 +194,7 @@ def health() -> dict[str, Any]:
         "ai_enabled": gemini_available(),
         "auth_enabled": API_AUTH_ENABLED,
         "webhooks_configured": len(WEBHOOK_URLS) + len(REGISTERED_WEBHOOKS),
+        "siem_connectors": [c.name for c in get_enabled_connectors()],
     }
 
 
