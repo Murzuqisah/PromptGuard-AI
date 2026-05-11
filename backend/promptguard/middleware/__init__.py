@@ -64,3 +64,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if auth.startswith("Bearer "):
             return f"key:{auth[7:].strip()}"
         return f"ip:{request.client.host if request.client else 'unknown'}"
+
+
+# ─── Correlation ID Middleware ────────────────────────────────────────────────
+
+from uuid import uuid4
+from ..logging import correlation_id
+
+
+class CorrelationIDMiddleware(BaseHTTPMiddleware):
+    """Assigns a unique correlation ID to each request for distributed tracing."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        req_id = request.headers.get("x-correlation-id", str(uuid4()))
+        token = correlation_id.set(req_id)
+        try:
+            response = await call_next(request)
+            response.headers["X-Correlation-ID"] = req_id
+            return response
+        finally:
+            correlation_id.reset(token)

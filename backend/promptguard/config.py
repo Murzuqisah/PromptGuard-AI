@@ -21,6 +21,22 @@ MAX_CONTENT_LENGTH: int = int(os.getenv("PROMPTGUARD_MAX_CONTENT_LENGTH", "10000
 API_KEYS: list[str] = [k.strip() for k in os.getenv("PROMPTGUARD_API_KEYS", "").split(",") if k.strip()]
 API_AUTH_ENABLED: bool = os.getenv("PROMPTGUARD_API_AUTH_ENABLED", "false").lower() in ("1", "true", "yes")
 
+# RBAC — maps API keys to roles. Format: key1:admin,key2:analyst,key3:viewer
+_rbac_raw = os.getenv("PROMPTGUARD_API_KEY_ROLES", "")
+API_KEY_ROLES: dict[str, str] = {}
+for _entry in _rbac_raw.split(","):
+    if ":" in _entry:
+        _key, _role = _entry.strip().rsplit(":", 1)
+        API_KEY_ROLES[_key.strip()] = _role.strip()
+
+# Multi-tenancy — maps API keys to tenant IDs. Format: key1:tenant-a,key2:tenant-b
+_tenant_raw = os.getenv("PROMPTGUARD_API_KEY_TENANTS", "")
+API_KEY_TENANTS: dict[str, str] = {}
+for _entry in _tenant_raw.split(","):
+    if ":" in _entry:
+        _key, _tenant = _entry.strip().rsplit(":", 1)
+        API_KEY_TENANTS[_key.strip()] = _tenant.strip()
+
 # Gemini AI
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
