@@ -14,6 +14,7 @@ export interface Finding {
 }
 
 export interface ScanResult {
+  event_id?: string;
   timestamp: string;
   channel: Channel;
   decision: Decision;

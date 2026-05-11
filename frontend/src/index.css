@@ -29,3 +29,9 @@ body {
   0% { width: 0%; }
   100% { width: 100%; }
 }
+
+/* Toast slide-in animation */
+@keyframes slideIn {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
