@@ -29,3 +29,12 @@ GEMINI_ENABLED: bool = os.getenv("GEMINI_ENABLED", "true").lower() in ("1", "tru
 # Webhooks
 WEBHOOK_URLS: list[str] = [u.strip() for u in os.getenv("PROMPTGUARD_WEBHOOK_URLS", "").split(",") if u.strip()]
 WEBHOOK_EVENTS: list[str] = os.getenv("PROMPTGUARD_WEBHOOK_EVENTS", "DENY,HUMAN_REVIEW").split(",")
+
+# Multi-tenancy — maps API keys to tenant IDs. Format: key1:tenant-a,key2:tenant-b
+# Keys not in this mapping belong to the "default" tenant
+_tenant_raw = os.getenv("PROMPTGUARD_API_KEY_TENANTS", "")
+API_KEY_TENANTS: dict[str, str] = {}
+for _entry in _tenant_raw.split(","):
+    if ":" in _entry:
+        _key, _tenant = _entry.strip().rsplit(":", 1)
+        API_KEY_TENANTS[_key.strip()] = _tenant.strip()

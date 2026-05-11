@@ -20,6 +20,7 @@ from .config import (
 )
 from .gemini import is_available as gemini_available
 from .scanner import analyze_content, analyze_tool_call, get_audit_events
+from .tenant import resolve_tenant
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,8 @@ def health() -> dict[str, Any]:
 @app.post("/scan")
 def scan(request: ScanRequest, background_tasks: BackgroundTasks, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _verify_api_key(authorization)
-    result = analyze_content(request.content, request.channel)
+    tenant_id = resolve_tenant(authorization)
+    result = analyze_content(request.content, request.channel, tenant_id=tenant_id)
     _update_stats(result["decision"])
     background_tasks.add_task(_fire_webhooks, result)
     return result
@@ -152,7 +154,8 @@ def scan(request: ScanRequest, background_tasks: BackgroundTasks, authorization:
 @app.post("/scan-tool")
 def scan_tool(request: ToolScanRequest, background_tasks: BackgroundTasks, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _verify_api_key(authorization)
-    result = analyze_tool_call(request.tool_name, request.arguments)
+    tenant_id = resolve_tenant(authorization)
+    result = analyze_tool_call(request.tool_name, request.arguments, tenant_id=tenant_id)
     _update_stats(result["decision"])
     background_tasks.add_task(_fire_webhooks, result)
     return result
@@ -161,7 +164,8 @@ def scan_tool(request: ToolScanRequest, background_tasks: BackgroundTasks, autho
 @app.get("/audit")
 def audit(limit: int = 50, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _verify_api_key(authorization)
-    return {"events": get_audit_events(limit)}
+    tenant_id = resolve_tenant(authorization)
+    return {"events": get_audit_events(limit, tenant_id=tenant_id)}
 
 
 # ─── Enterprise Integration Endpoints ────────────────────────────────────────
@@ -181,11 +185,12 @@ def guard(request: GuardRequest, background_tasks: BackgroundTasks, authorizatio
     Response includes `permitted` (bool) for simple integration.
     """
     _verify_api_key(authorization)
+    tenant_id = resolve_tenant(authorization)
 
     if request.channel == "tool_call":
-        result = analyze_tool_call(request.action, request.metadata.get("arguments", {"command": request.content}))
+        result = analyze_tool_call(request.action, request.metadata.get("arguments", {"command": request.content}), tenant_id=tenant_id)
     else:
-        result = analyze_content(request.content, request.channel)
+        result = analyze_content(request.content, request.channel, tenant_id=tenant_id)
 
     _update_stats(result["decision"])
     background_tasks.add_task(_fire_webhooks, {**result, "source": request.source, "action": request.action})
