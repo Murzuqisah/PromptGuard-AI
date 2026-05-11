@@ -42,6 +42,9 @@ Desktop.ini
 # Docker
 docker-compose.override.yml
 
+# Database
+data/
+
 # Logs
 *.log
 npm-debug.log*
