@@ -56,7 +56,7 @@ export default function ScannerPage() {
 
       {/* Metrics */}
       {result && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted mb-1">Decision</p>
@@ -85,7 +85,7 @@ export default function ScannerPage() {
       )}
 
       {/* Scanner + Results */}
-      <section className="grid grid-cols-2 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between w-full">

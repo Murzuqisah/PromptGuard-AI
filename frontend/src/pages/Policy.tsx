@@ -302,7 +302,7 @@ export default function PolicyPage() {
       </header>
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">

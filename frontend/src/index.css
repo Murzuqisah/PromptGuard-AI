@@ -18,3 +18,14 @@
 body {
   @apply bg-background text-ink font-sans antialiased;
 }
+
+/* Safe area for mobile notch/home indicator */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Splash screen loading animation */
+@keyframes loading {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
