@@ -60,10 +60,10 @@ PromptGuard AI is an AI security gateway built with an AI-assisted development w
 - RBAC: admin, analyst, viewer roles with hierarchical permissions.
 - Multi-tenant: isolated audit trails, tenant-scoped scan results.
 - SIEM connectors: Splunk HEC, AWS CloudWatch, Datadog, Elasticsearch/OpenSearch.
+- Human approval queue: HUMAN_REVIEW decisions auto-enqueued, approve/reject via API, timeout auto-deny.
 
 ## Remaining
 
-- Human approval queues for HUMAN_REVIEW decisions.
 - Python and npm SDK packages.
 - Real-time WebSocket event streaming.
 
