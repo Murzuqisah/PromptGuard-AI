@@ -4,7 +4,7 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ .
-COPY .env.example /app/.env
+ENV VITE_API_BASE_URL=""
 RUN npm run build
 
 # ─── Stage 2: Production Image ───────────────────────────────────────────────
@@ -30,6 +30,7 @@ COPY --from=frontend-build /app/frontend/dist /var/www/html
 RUN cat > /etc/nginx/sites-available/default << 'EOF'
 server {
 listen 80;
+listen 10000;
 server_name _;
 
 # Frontend (SPA)
@@ -68,6 +69,11 @@ RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
 set -e
 
+# Replace nginx port with PORT env var if set (for Render/Railway)
+if [ -n "$PORT" ] && [ "$PORT" != "80" ]; then
+  sed -i "s/listen 10000;/listen $PORT;/" /etc/nginx/sites-available/default
+fi
+
 # Start nginx in background
 nginx -g "daemon on;"
 
@@ -84,6 +90,6 @@ RUN chmod +x /app/start.sh
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-EXPOSE 80
+EXPOSE 80 10000
 
 CMD ["/app/start.sh"]
