@@ -2,6 +2,10 @@
 
 PromptGuard AI is an enterprise agent firewall for LLM applications. It sits between users, models, and agent tools, then scores prompts, model outputs, uploaded text, and tool calls before allowing the action to continue.
 
+As organizations rapidly adopt AI agents that can execute code, access databases, send emails, and modify infrastructure, the attack surface expands dramatically. A single prompt injection can turn a helpful assistant into a data exfiltration tool. A leaked API key in model output can compromise entire cloud environments. An unguarded tool call can wipe production servers. PromptGuard AI addresses this gap by providing a centralized security checkpoint — a firewall purpose-built for the AI era — that inspects every interaction between humans, models, and tools in real-time.
+
+The system uses a hybrid detection approach combining 35 deterministic regex rules (executing in under 1ms) with Google Gemini AI semantic analysis (for catching novel and obfuscated threats that patterns alone cannot detect). This dual-layer architecture ensures both speed and depth: known attack patterns are blocked instantly, while subtle social engineering, encoded payloads, and adversarial prompt techniques are caught by the AI layer. All decisions are explainable, auditable, and overridable by security teams.
+
 Built as a hackathon-ready MVP for the Agent Security & AI Governance track: fast to demo, easy to run locally, and designed to integrate with any AI system as a security gateway.
 
 ## What It Does
