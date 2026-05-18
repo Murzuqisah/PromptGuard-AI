@@ -1,13 +1,27 @@
+# Single-container deployment — API + Frontend in one image
+# Usage: docker compose -f docker-compose.yml up --build
+
 services:
-  api:
-    build: .
+  promptguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "${PROMPTGUARD_PORT:-8000}:${PROMPTGUARD_PORT:-8000}"
+      - "${PROMPTGUARD_EXPOSE_PORT:-80}:80"
     env_file:
       - .env
-  dashboard:
-    build: ./frontend
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      - api
+    environment:
+      - PROMPTGUARD_HOST=127.0.0.1
+      - PROMPTGUARD_PORT=8000
+      - PROMPTGUARD_WORKERS=${PROMPTGUARD_WORKERS:-2}
+    volumes:
+      - pgdata:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
