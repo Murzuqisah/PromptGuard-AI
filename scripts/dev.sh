@@ -3,10 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Load .env from project root
+# Load .env from project root (skip lines with spaces in key names)
 if [ -f "$ROOT/.env" ]; then
   set -a
-  source "$ROOT/.env"
+  while IFS='=' read -r key value; do
+    [[ -z "$key" || "$key" == \#* || "$key" == *" "* ]] && continue
+    export "$key=$value"
+  done < "$ROOT/.env"
   set +a
 fi
 

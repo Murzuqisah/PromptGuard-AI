@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { ScanResult } from "@/lib/scanner";
 
-const WS_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/^http/, "ws") + "/ws/events";
+const _base = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const WS_URL = _base
+  ? _base.replace(/^http/, "ws") + "/ws/events"
+  : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/events`;
 
 export function useEventStream() {
   const [events, setEvents] = useState<ScanResult[]>([]);

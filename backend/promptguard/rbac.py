@@ -31,11 +31,12 @@ PERMISSIONS: dict[str, str] = {
 
 
 def get_current_role(authorization: str | None) -> str:
-    """Extract role from the API key. Returns 'admin' if auth is disabled."""
+    """Extract role from the API key. Returns 'admin' if auth is disabled.
+    Returns 'viewer' if no auth header provided (allows dashboard access)."""
     if not API_AUTH_ENABLED:
         return "admin"
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        return "viewer"
     token = authorization.removeprefix("Bearer ").strip()
     if token not in API_KEYS:
         raise HTTPException(status_code=403, detail="Invalid API key")

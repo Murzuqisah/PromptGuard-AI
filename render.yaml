@@ -1,0 +1,76 @@
+services:
+  - type: web
+    name: promptguard-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PROMPTGUARD_PORT
+        value: "8000"
+      - key: PROMPTGUARD_HOST
+        value: "127.0.0.1"
+      - key: PROMPTGUARD_CORS_ORIGINS
+        value: "https://promptguard-ai.onrender.com"
+      - key: PROMPTGUARD_LOG_LEVEL
+        value: "info"
+      - key: PROMPTGUARD_AUDIT_MAX_EVENTS
+        value: "1000"
+      - key: PROMPTGUARD_MAX_CONTENT_LENGTH
+        value: "100000"
+      - key: PROMPTGUARD_API_AUTH_ENABLED
+        value: "true"
+      - key: PROMPTGUARD_API_KEYS
+        sync: false
+      - key: PROMPTGUARD_API_KEY_ROLES
+        sync: false
+      - key: PROMPTGUARD_API_KEY_TENANTS
+        sync: false
+      - key: PROMPTGUARD_DATABASE_PATH
+        value: "/app/data/promptguard.db"
+      - key: PROMPTGUARD_RATE_LIMIT_ENABLED
+        value: "true"
+      - key: PROMPTGUARD_RATE_LIMIT_REQUESTS
+        value: "120"
+      - key: PROMPTGUARD_RATE_LIMIT_WINDOW
+        value: "60"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-2.0-flash"
+      - key: GEMINI_ENABLED
+        value: "true"
+      - key: PROMPTGUARD_WEBHOOK_URLS
+        sync: false
+      - key: PROMPTGUARD_WEBHOOK_EVENTS
+        value: "DENY,HUMAN_REVIEW"
+      - key: PROMPTGUARD_APPROVAL_TIMEOUT
+        value: "3600"
+      - key: PROMPTGUARD_SPLUNK_HEC_URL
+        sync: false
+      - key: PROMPTGUARD_SPLUNK_HEC_TOKEN
+        sync: false
+      - key: PROMPTGUARD_CLOUDWATCH_LOG_GROUP
+        sync: false
+      - key: PROMPTGUARD_CLOUDWATCH_LOG_STREAM
+        value: "promptguard-events"
+      - key: PROMPTGUARD_CLOUDWATCH_REGION
+        value: "us-east-1"
+      - key: PROMPTGUARD_DATADOG_API_KEY
+        sync: false
+      - key: PROMPTGUARD_DATADOG_SITE
+        value: "datadoghq.com"
+      - key: PROMPTGUARD_ELASTIC_URL
+        sync: false
+      - key: PROMPTGUARD_ELASTIC_INDEX
+        value: "promptguard-events"
+      - key: PROMPTGUARD_ELASTIC_API_KEY
+        sync: false
+      - key: PROMPTGUARD_WORKERS
+        value: "2"
+    disk:
+      name: promptguard-data
+      mountPath: /app/data
+      sizeGB: 1

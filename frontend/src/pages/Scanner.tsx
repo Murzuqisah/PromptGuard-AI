@@ -72,7 +72,7 @@ export default function ScannerPage() {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted mb-1">Findings</p>
-              <p className="text-2xl font-bold">{result.findings.length}</p>
+              <p className="text-2xl font-bold">{(result.findings || []).length}</p>
             </CardContent>
           </Card>
           <Card>
@@ -136,10 +136,10 @@ export default function ScannerPage() {
                 <div className="h-2 rounded-full bg-surface-alt overflow-hidden">
                   <div className={cn("h-full transition-all duration-300", riskBarColor(result.decision))} style={{ width: `${result.risk_score}%` }} />
                 </div>
-                {result.findings.length > 0 ? (
+                {(result.findings || []).length > 0 ? (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted uppercase tracking-wider">Findings</p>
-                    {result.findings.map((f, i) => (
+                    {(result.findings || []).map((f, i) => (
                       <div key={i} className="rounded-lg border border-border bg-background p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <FileWarning className="w-3.5 h-3.5 text-red-400" />
